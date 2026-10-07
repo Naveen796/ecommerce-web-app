@@ -178,15 +178,27 @@ CREATE TABLE IF NOT EXISTS order_items (
 --  every database on the computer), we create a small user that can
 --  only read and change rows inside ecommerce_db.
 --
---  If you prefer to use root, simply put DB_USER=root in your .env.
+--  >>> CHANGE THE PASSWORD BELOW BEFORE YOU RUN THIS FILE <<<
+--
+--  Pick your own password and use the EXACT SAME one on the
+--  DB_PASSWORD line of your .env file.
+--
+--  If you prefer to use root, simply put DB_USER=root in your .env
+--  and skip this whole section.
 -- =====================================================================
 
-CREATE USER IF NOT EXISTS 'ecommerce_user'@'localhost' IDENTIFIED BY 'Ecom@12345';
+CREATE USER IF NOT EXISTS 'ecommerce_user'@'localhost'
+    IDENTIFIED BY 'CHANGE_THIS_TO_YOUR_OWN_PASSWORD';
 
 -- Only these four permissions, and only on our one database.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ecommerce_db.* TO 'ecommerce_user'@'localhost';
 
 FLUSH PRIVILEGES;
+
+-- Changing your mind about the password later? Run this:
+--   ALTER USER 'ecommerce_user'@'localhost'
+--       IDENTIFIED BY 'your_new_password';
+--   FLUSH PRIVILEGES;
 
 
 -- =====================================================================
