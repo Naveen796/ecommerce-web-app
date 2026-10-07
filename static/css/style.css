@@ -2013,7 +2013,36 @@ ul { list-style: none; }
 }
 
 /* ---------------------------------------------------------------------
-   21. USERS WHO PREFER LESS MOTION
+   21. SCROLL-IN ANIMATION FOR PRODUCT CARDS
+   ---------------------------------------------------------------------
+   IMPORTANT - read this before changing it.
+
+   The cards start VISIBLE and are only hidden once JavaScript has
+   proved it can bring them back. The "js-anim" class is added to the
+   <html> element by script.js; if JavaScript is disabled, blocked,
+   errors out, or never loads, that class is never added and the cards
+   simply stay visible.
+
+   An earlier version set opacity directly from JavaScript, which meant
+   that any JS failure left the whole shop blank. Never do that again.
+   --------------------------------------------------------------------- */
+html.js-anim .product-card {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .45s ease, transform .45s ease;
+}
+
+html.js-anim .product-card.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.js-anim .product-card { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------------
+   22. USERS WHO PREFER LESS MOTION
    --------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
