@@ -146,27 +146,27 @@
     <div class="container footer-grid">
 
         <div class="footer-col">
-            <h4>{{ site_name }}</h4>
+            <h2>{{ site_name }}</h2>
             <p>{{ site_tagline }}. Built with Flask and MySQL as a web
                development portfolio project.</p>
         </div>
 
         <div class="footer-col">
-            <h4>Shop</h4>
+            <h2>Shop</h2>
             <a href="{{ url_for('products') }}">All products</a>
             <a href="{{ url_for('products', sort='price_low') }}">Budget picks</a>
             <a href="{{ url_for('products', sort='price_high') }}">Premium picks</a>
         </div>
 
         <div class="footer-col">
-            <h4>Account</h4>
+            <h2>Account</h2>
             <a href="{{ url_for('login') }}">Log in</a>
             <a href="{{ url_for('register') }}">Create account</a>
             <a href="{{ url_for('orders') }}">My orders</a>
         </div>
 
         <div class="footer-col">
-            <h4>Contact</h4>
+            <h2>Contact</h2>
             <p>support@{{ site_name|lower }}.com</p>
             <p>+91 90000 00000</p>
             <p>Mon - Sat, 10:00 AM - 7:00 PM</p>

@@ -107,6 +107,16 @@ img { max-width: 100%; display: block; }
 a { color: var(--brand); text-decoration: none; transition: color .15s; }
 a:hover { color: var(--brand-dark); }
 
+/* A link that sits INSIDE a sentence must not be identified by colour
+   alone, or people with colour blindness cannot find it. Underlining
+   these is an accessibility requirement, not a style choice. */
+p a, li a, dd a, figcaption a,
+.auth-alt a, .admin-note a, .info-list a, .summary-hint a,
+.summary-points a, .panel p a, .card p a, .dropdown-menu p a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
@@ -363,16 +373,20 @@ ul { list-style: none; }
     gap: 18px;
 }
 
-.nav-links > a {
+/* NOTE the :not(.btn).
+   ".nav-links > a" has a HIGHER specificity than ".btn-primary", so
+   without :not(.btn) this rule overwrites the white button text and
+   the navbar "Sign up" button becomes unreadable. */
+.nav-links > a:not(.btn) {
     color: var(--text);
     font-weight: 500;
     font-size: .94rem;
     position: relative;
 }
 
-.nav-links > a:hover { color: var(--brand); }
+.nav-links > a:not(.btn):hover { color: var(--brand); }
 
-.nav-links > a.admin-link {
+.nav-links > a:not(.btn).admin-link {
     color: var(--accent);
     font-weight: 600;
 }
@@ -626,7 +640,7 @@ ul { list-style: none; }
     font-size: 1.5rem;
 }
 
-.feature h4 { margin-bottom: 6px; }
+.feature h3 { margin-bottom: 6px; }
 .feature p { font-size: .9rem; }
 
 /* ---------------------------------------------------------------------
@@ -832,7 +846,10 @@ ul { list-style: none; }
 
 .page-btn:hover { border-color: var(--brand); color: var(--brand); }
 .page-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
-.page-btn.disabled { color: var(--text-light); background: var(--bg-alt); pointer-events: none; }
+
+/* A disabled page button is a <span>, not a <button>, so screen readers
+   do not treat it as disabled - the colour still has to pass AA. */
+.page-btn.disabled { color: var(--text-soft); background: var(--bg-alt); pointer-events: none; }
 
 /* ---------------------------------------------------------------------
    10. PRODUCT DETAILS
@@ -1747,7 +1764,7 @@ ul { list-style: none; }
     padding-block: 44px 34px;
 }
 
-.footer h4 { color: #fff; font-size: 1rem; margin-bottom: 14px; }
+.footer h2 { color: #fff; font-size: 1rem; margin-bottom: 14px; }
 
 .footer a {
     display: block;
@@ -1898,14 +1915,16 @@ ul { list-style: none; }
         gap: 4px;
     }
 
-    .nav-links > a,
+    /* Bigger tap targets on phones. Buttons are excluded from the hover
+       background so a filled button keeps its own colours. */
+    .nav-links > a:not(.btn),
     .dropdown-toggle {
         padding: 11px 12px;
         border-radius: var(--radius-sm);
         justify-content: space-between;
     }
 
-    .nav-links > a:hover { background: var(--brand-light); }
+    .nav-links > a:not(.btn):hover { background: var(--brand-light); }
 
     .dropdown { width: 100%; }
 

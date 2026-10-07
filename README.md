@@ -142,6 +142,9 @@ ecommerce-web-app/
 │   ├── schema.sql          # Creates database + all 6 tables
 │   └── seed.sql            # Sample categories and products
 │
+├── tests/
+│   └── smoke_test.py       # 82 automatic checks of every feature
+│
 ├── logs/                   # Created automatically, holds error.log
 └── .venv/                  # Python virtual environment (never committed)
 ```
@@ -340,6 +343,24 @@ Find your IPv4 address (e.g. `192.168.1.5`) and open
 
 ## 10. Testing checklist
 
+### 10.1 Run the automated tests first
+
+```bash
+python tests/smoke_test.py
+```
+
+This walks through every feature — browsing, search, filters, registration,
+login, cart limits, checkout, order privacy, the admin panel, and a set of
+SQL-injection / XSS / CSRF attacks — and prints `PASS` or `FAIL` for each check.
+
+Expected: **82 passed, 0 failed.**
+
+> If it complains that the accounts do not exist, open the top of
+> `tests/smoke_test.py` and change `ADMIN_EMAIL` / `CUSTOMER_EMAIL` to the
+> accounts you created with `admin_setup.py`.
+
+### 10.2 Then check it in the browser
+
 Go through this before you call the project done.
 
 **Home & browsing**
@@ -470,7 +491,7 @@ If they do, `.gitignore` is missing or broken — remove them with
 | `Unknown database 'ecommerce_db'` | `schema.sql` not run yet | `mysql -u root -p < database/schema.sql` |
 | Page shows "We could not reach the database" | MySQL down or bad `.env` | Check both; see `logs/error.log` |
 | `403 Forbidden` on `/admin` | Not logged in as an admin | Run `python admin_setup.py` and choose option 1 |
-| Changes to templates not showing | Flask caching | `Ctrl+C` the server and run `python app.py` again |
+| Changes to templates not showing | Flask caches templates when debug is off | Set `FLASK_DEBUG=true` in `.env`, then `Ctrl+C` and `python app.py` again |
 | `.env` changes ignored | Environment variables already loaded | Restart the server |
 | Port 5000 already in use | Another program on that port | `netstat -ano | findstr :5000` then stop it, or set `PORT=5001` in `.env` |
 | `₹` shows as `?` | File not saved as UTF-8 | Save `.env` as UTF-8, or remove `CURRENCY` and use the default |
