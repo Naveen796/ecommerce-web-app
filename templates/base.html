@@ -1,0 +1,189 @@
+{# =====================================================================
+   templates/base.html
+   THE MAIN LAYOUT (also called "layout" or "master page").
+
+   Every other page does `{% extends "base.html" %}` and then fills in
+   the blocks below. This is the Jinja2 way of doing templates.
+
+   WHY IT IS GOOD:
+     - The navbar and footer are written once, so a change shows up
+       everywhere.
+     - No duplicated HTML.
+   ===================================================================== #}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} &middot; {{ site_name }}</title>
+
+    <meta name="description" content="{{ site_name }} - {{ site_tagline }}">
+
+    <link rel="icon" href="{{ url_for('static', filename='images/placeholder.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {# Google Fonts - Inter for text, Poppins for headings #}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+{# ---------------- TOP BAR (small strip above the navbar) --------- #}
+<div class="topbar">
+    <div class="container topbar-inner">
+        <span>Free delivery on orders above &#8377;999</span>
+        <span class="topbar-right">
+            {% if current_user %}
+                Hello, {{ current_user.name }}
+            {% else %}
+                <a href="{{ url_for('login') }}">Log in</a> to start shopping
+            {% endif %}
+        </span>
+    </div>
+</div>
+
+{# ---------------- NAVIGATION BAR --------------------------------- #}
+<header class="navbar">
+    <div class="container nav-inner">
+
+        {# Logo / website name #}
+        <a class="logo" href="{{ url_for('index') }}">
+            <span class="logo-mark">S</span>
+            <span class="logo-text">{{ site_name }}</span>
+        </a>
+
+        {# The hamburger button only shows on phones / small tablets #}
+        <button class="nav-toggle" id="navToggle" aria-label="Open menu"
+                aria-expanded="false" aria-controls="navMenu">
+            <span></span><span></span><span></span>
+        </button>
+
+        <div class="nav-menu" id="navMenu">
+
+            {# ---- Search bar ---- #}
+            <form class="search" action="{{ url_for('products') }}" method="get"
+                  role="search">
+                <input type="search" name="q" placeholder="Search for products..."
+                       value="{{ search_text|default('', true) }}"
+                       aria-label="Search products">
+                <button type="submit" aria-label="Search">&#128269;</button>
+            </form>
+
+            {# ---- Main links ---- #}
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}">Home</a>
+                <a href="{{ url_for('products') }}">Shop</a>
+
+                {% if current_user %}
+                    <a href="{{ url_for('orders') }}">My Orders</a>
+                    <a href="{{ url_for('cart') }}" class="cart-link">
+                        Cart
+                        {% if cart_count %}
+                            <span class="badge-count" id="cartCount">{{ cart_count }}</span>
+                        {% else %}
+                            <span class="badge-count hidden" id="cartCount">0</span>
+                        {% endif %}
+                    </a>
+
+                    {% if current_user.is_admin == 1 %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="admin-link">
+                            Admin Panel
+                        </a>
+                    {% endif %}
+
+                    <div class="dropdown">
+                        <button class="dropdown-toggle" type="button">
+                            {{ current_user.name }} <span class="caret">&#9662;</span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{{ url_for('orders') }}">My Orders</a>
+                            <a href="{{ url_for('logout') }}">Log out</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Log in</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Sign up</a>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+</header>
+
+{# ---------------- FLASH MESSAGES --------------------------------- #}
+{# `flash()` messages from app.py appear here. #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="container">
+            <div class="flash-area">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">
+                        <span class="alert-icon">
+                            {%- if category == 'success' %}&#10003;
+                            {%- elif category == 'error' %}&#10007;
+                            {%- elif category == 'warning' %}&#9888;
+                            {%- else %}&#8505;{% endif -%}
+                        </span>
+                        <span class="alert-text">{{ message }}</span>
+                        <button class="alert-close" type="button" aria-label="Close">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}
+
+{# ---------------- PAGE CONTENT ---------------------------------- #}
+{# Each page file overrides exactly this block. #}
+<main class="container main-content">
+    {% block content %}{% endblock %}
+</main>
+
+{# ---------------- FOOTER ----------------------------------------- #}
+<footer class="footer">
+    <div class="container footer-grid">
+
+        <div class="footer-col">
+            <h4>{{ site_name }}</h4>
+            <p>{{ site_tagline }}. Built with Flask and MySQL as a web
+               development portfolio project.</p>
+        </div>
+
+        <div class="footer-col">
+            <h4>Shop</h4>
+            <a href="{{ url_for('products') }}">All products</a>
+            <a href="{{ url_for('products', sort='price_low') }}">Budget picks</a>
+            <a href="{{ url_for('products', sort='price_high') }}">Premium picks</a>
+        </div>
+
+        <div class="footer-col">
+            <h4>Account</h4>
+            <a href="{{ url_for('login') }}">Log in</a>
+            <a href="{{ url_for('register') }}">Create account</a>
+            <a href="{{ url_for('orders') }}">My orders</a>
+        </div>
+
+        <div class="footer-col">
+            <h4>Contact</h4>
+            <p>support@{{ site_name|lower }}.com</p>
+            <p>+91 90000 00000</p>
+            <p>Mon - Sat, 10:00 AM - 7:00 PM</p>
+        </div>
+    </div>
+
+    <div class="footer-bottom">
+        <p>&copy; {{ current_year }} {{ site_name }}. A portfolio project.</p>
+    </div>
+</footer>
+
+{# Back to top button #}
+<button class="to-top" id="toTop" aria-label="Back to top" hidden>&#8593;</button>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+{# Every single POST form on the site ends with this hidden box. #}
+{# The hidden CSRF token is how Flask knows the form is really ours. #}
+</body>
+</html>

@@ -1,0 +1,139 @@
+{# =====================================================================
+   templates/index.html   -   THE HOME PAGE
+   Shows: hero banner, categories, featured products, newest arrivals.
+   ===================================================================== #}
+{% extends "base.html" %}
+{% from "macros.html" import product_card with context %}
+
+{% block content %}
+
+{# ---------------- HERO BANNER ------------------------------------ #}
+<section class="hero">
+    <div class="container hero-inner">
+        <div class="hero-text">
+            <span class="eyebrow">{{ site_tagline }}</span>
+            <h1>Shop smarter.<br>Everything you need, delivered.</h1>
+            <p>
+                Browse mobiles, laptops, audio, home and fashion in one place.
+                Simple prices, fast delivery and easy returns.
+            </p>
+
+            <div class="hero-actions">
+                <a href="{{ url_for('products') }}" class="btn btn-primary btn-lg">
+                    Shop All Products
+                </a>
+                <a href="#categories" class="btn btn-ghost btn-lg">Browse Categories</a>
+            </div>
+
+            <ul class="hero-points">
+                <li>&#10003; Cash on delivery</li>
+                <li>&#10003; 7 day easy returns</li>
+                <li>&#10003; 100% genuine products</li>
+            </ul>
+        </div>
+
+        <div class="hero-art">
+            <div class="hero-card">
+                <div class="hero-card-image">
+                    <img src="{{ url_for('static', filename='images/placeholder.svg') }}"
+                         alt="Featured product">
+                </div>
+                <div class="hero-card-body">
+                    <strong>Flat savings every week</strong>
+                    <span>New deals added every day</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ---------------- CATEGORIES ------------------------------------- #}
+<section class="section" id="categories">
+    <div class="container">
+        <div class="section-head">
+            <h2>Shop by Category</h2>
+            <a href="{{ url_for('products') }}" class="link-more">View all &rarr;</a>
+        </div>
+
+        <div class="category-grid">
+            {% for category in categories %}
+                <a class="category-card"
+                   href="{{ url_for('products', category=category.slug) }}">
+                    <span class="category-icon">&#128717;</span>
+                    <h3>{{ category.name }}</h3>
+                    <p>{{ category.product_count }} product{{ '' if category.product_count == 1 else 's' }}</p>
+                </a>
+            {% else %}
+                <p class="muted">No categories yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{# ---------------- FEATURED PRODUCTS ------------------------------- #}
+{% if featured %}
+<section class="section section-alt">
+    <div class="container">
+        <div class="section-head">
+            <h2>Featured Products</h2>
+            <a href="{{ url_for('products') }}" class="link-more">See everything &rarr;</a>
+        </div>
+
+        {# CSS GRID: the cards sit side by side and wrap automatically
+           to one column on a phone. No extra JavaScript needed. #}
+        <div class="product-grid">
+            {% for product in featured %}
+                {{ product_card(product) }}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{# ---------------- NEW ARRIVALS ----------------------------------- #}
+{% if newest %}
+<section class="section">
+    <div class="container">
+        <div class="section-head">
+            <h2>New Arrivals</h2>
+            <a href="{{ url_for('products', sort='newest') }}" class="link-more">See everything &rarr;</a>
+        </div>
+
+        <div class="product-grid">
+            {% for product in newest %}
+                {{ product_card(product) }}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{# ---------------- WHY US STRIP ----------------------------------- #}
+<section class="section section-dark">
+    <div class="container">
+        <div class="feature-strip">
+            <div class="feature">
+                <span class="feature-icon">&#128666;</span>
+                <h4>Fast Delivery</h4>
+                <p>Get your order in 2 to 4 working days.</p>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">&#128176;</span>
+                <h4>Fair Prices</h4>
+                <p>Simple pricing with no hidden charges.</p>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">&#128274;</span>
+                <h4>Safe Payments</h4>
+                <p>Pay on delivery, no card details needed.</p>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">&#128153;</span>
+                <h4>Happy Customers</h4>
+                <p>Thousands of orders delivered every month.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}
