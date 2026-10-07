@@ -6,6 +6,47 @@
 
 {% block content %}
 
+{# =====================================================================
+     QUICK FILTER BAR  -  instant, client side, no page reload
+     =====================================================================
+     This is an ADDITION, not a replacement. The server-side filter form
+     in the sidebar below is still the real filter and still works with
+     JavaScript switched off. Everything here hangs off #quickFilter so
+     script.js can find it; if the script fails to load, this bar simply
+     stops filtering and the page carries on working as before.
+     ===================================================================== #}
+<div class="filter-bar">
+    <div class="filter-search">
+        <span class="search-icon" aria-hidden="true">&#128269;</span>
+        <label class="sr-only" for="quickSearch">Search products on this page</label>
+        <input type="search" id="quickSearch"
+               placeholder="Search these results instantly..." value="{{ search_text }}">
+    </div>
+
+    <label class="sr-only" for="quickCategory">Filter by category</label>
+    <select id="quickCategory">
+        <option value="">All categories</option>
+        {% for category in categories %}
+            <option value="{{ category.slug }}"
+                {% if active_category == category.slug %}selected{% endif %}>
+                {{ category.name }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label class="sr-only" for="quickSort">Sort products</label>
+    <select id="quickSort">
+        <option value="newest">Newest first</option>
+        <option value="price_low">Price: low to high</option>
+        <option value="price_high">Price: high to low</option>
+        <option value="name">Name: A to Z</option>
+    </select>
+
+    <button type="button" id="quickClear" class="btn btn-ghost btn-sm">Clear</button>
+
+    <span class="filter-count" id="quickCount"></span>
+</div>
+
 <div class="page-head">
     <div>
         <h1>{% if active_category %}{{ active_category|replace('-', ' ')|title }}{% elif search_text %}Search results{% else %}All Products{% endif %}</h1>
@@ -83,10 +124,29 @@
     {# ---------------- RIGHT: PRODUCT GRID ------------------------- #}
     <section class="shop-results">
         {% if products %}
-            <div class="product-grid">
+            <div class="product-grid" id="quickFilter">
                 {% for product in products %}
-                    {{ product_card(product) }}
+                    {{ product_card(product, loop.index) }}
                 {% endfor %}
+            </div>
+
+            {# Revealed by the instant filter when nothing matches.
+               The second link is important: the quick bar only filters
+               THIS page, so it must offer a real search of the whole
+               catalogue (which the server handles). #}
+            <div class="empty-filter" id="quickEmpty">
+                <div class="empty-icon">&#128269;</div>
+                <h3>No matches on this page</h3>
+                <p>The quick filter only looks at the products currently shown.
+                   Use the button below to search the entire catalogue, or the
+                   Filters panel on the left.</p>
+                <div class="empty-filter-actions">
+                    <button type="button" class="btn btn-primary" id="quickClearEmpty">
+                        Clear the search
+                    </button>
+                    <a href="{{ url_for('products') }}" class="btn btn-outline"
+                       id="quickSearchAll">Search all products</a>
+                </div>
             </div>
 
             {{ pagination(page, total_pages, 'products',

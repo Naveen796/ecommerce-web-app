@@ -315,48 +315,328 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /* =================================================================
-       12. FADE IN PRODUCT CARDS AS THEY SCROLL INTO VIEW
+       12. FADE IN SECTIONS AS THEY SCROLL INTO VIEW
        -----------------------------------------------------------------
        A tiny IntersectionObserver, purely for looks.
 
-       WHY THE "js-anim" CLASS MATTERS
-       The CSS hides the cards ONLY while html has class "js-anim", and
-       we add that class here - after confirming we can actually reveal
-       them again. So if this file never runs, is blocked, or throws an
-       error, the class is never added and the shop is fully visible.
-       The animation is never allowed to break the page.
+       WHY THE "can-animate" CLASS MATTERS
+       Every [data-animate] element is VISIBLE by default. We only add
+       .can-animate to <html> once we have confirmed the observer exists
+       and will run. So if this file never loads, is blocked, or throws
+       an error, the class is never added and every section stays
+       visible. An earlier version set opacity from JS directly, which
+       meant any JS failure left the whole shop blank.
        ================================================================= */
-    const cards = document.querySelectorAll('.product-card');
+    const revealTargets = document.querySelectorAll('[data-animate]');
     const supportsObserver = 'IntersectionObserver' in window;
     const prefersStill = window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Only hide the cards when we are certain we can show them again.
-    if (cards.length && supportsObserver && !prefersStill) {
-        document.documentElement.classList.add('js-anim');
+    if (revealTargets.length && supportsObserver && !prefersStill) {
+        document.documentElement.classList.add('can-animate');
 
-        const observer = new IntersectionObserver(function (entries) {
+        const revealObserver = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
-                    entry.target.classList.add('is-visible');
-                    observer.unobserve(entry.target);   // animate only once
+                    entry.target.classList.add('in-view');
+                    revealObserver.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
+        }, { threshold: 0.08, rootMargin: '0px 0px -50px 0px' });
 
-        cards.forEach(function (card) { observer.observe(card); });
+        revealTargets.forEach(function (el) { revealObserver.observe(el); });
 
-        // Safety net: after 3 seconds show everything unconditionally.
-        // We also switch the transition OFF first, so the cards appear
-        // instantly even if a transition were somehow stuck mid-flight.
+        // Safety net: after 4 seconds show everything unconditionally,
+        // and switch the transition OFF so a stalled animation cannot
+        // leave content invisible.
         window.setTimeout(function () {
-            document.querySelectorAll('.product-card').forEach(function (card) {
-                card.style.transition = 'none';
-                card.classList.add('is-visible');
+            document.querySelectorAll('[data-animate]').forEach(function (el) {
+                el.style.transition = 'none';
+                el.classList.add('in-view');
             });
-            document.documentElement.classList.remove('js-anim');
-            observer.disconnect();
-        }, 3000);
+            document.documentElement.classList.remove('can-animate');
+            revealObserver.disconnect();
+        }, 4000);
+    }
+
+
+    /* =================================================================
+       13. TOAST NOTIFICATIONS
+       -----------------------------------------------------------------
+       showToast() is deliberately global because it is also called from
+       the onsubmit handler in contact.html and the newsletter box.
+       ================================================================= */
+    const TOAST_ICONS = {
+        success: '\u2713',
+        error:   '\u2717',
+        warning: '!',
+        info:    'i'
+    };
+
+    window.showToast = function (message, type, duration) {
+        const area = document.getElementById('toastArea');
+        if (!area || !message) { return; }
+
+        const kind = TOAST_ICONS[type] ? type : 'info';
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + kind;
+        toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+        const icon = document.createElement('span');
+        icon.className = 'toast-icon';
+        icon.textContent = TOAST_ICONS[kind];
+
+        const text = document.createElement('span');
+        text.className = 'toast-text';
+        text.textContent = message;          // textContent, never innerHTML
+
+        const close = document.createElement('button');
+        close.className = 'toast-close';
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.innerHTML = '&times;';
+
+        toast.appendChild(icon);
+        toast.appendChild(text);
+        toast.appendChild(close);
+        area.appendChild(toast);
+
+        let timer = null;
+        const dismiss = function () {
+            if (!toast.parentNode) { return; }
+            window.clearTimeout(timer);
+            toast.classList.add('out');
+            window.setTimeout(function () { toast.remove(); }, 260);
+        };
+
+        close.addEventListener('click', dismiss);
+        timer = window.setTimeout(dismiss, duration || 3600);
+
+        // Never let more than four toasts pile up.
+        while (area.children.length > 4) { area.firstElementChild.remove(); }
+    };
+
+
+    /* =================================================================
+       14. TURN FLASH MESSAGES INTO TOASTS
+       -----------------------------------------------------------------
+       Flask's flash() messages render as .alert boxes. We copy them
+       into the toast area so every notification looks the same, then
+       hide the original. The original stays in the DOM (hidden by CSS)
+       so no information is lost if JavaScript is unavailable.
+       ================================================================= */
+    document.querySelectorAll('.alert').forEach(function (alert) {
+        const textNode = alert.querySelector('.alert-text');
+        if (!textNode) { return; }
+
+        const text = (textNode.textContent || '').trim();
+        if (!text) { return; }
+
+        let kind = 'info';
+        if (alert.classList.contains('alert-success')) { kind = 'success'; }
+        else if (alert.classList.contains('alert-error')) { kind = 'error'; }
+        else if (alert.classList.contains('alert-warning')) { kind = 'warning'; }
+
+        alert.classList.add('alert-moved');     // hidden via CSS
+        window.showToast(text, kind, kind === 'error' ? 6500 : 3600);
+    });
+
+
+    /* =================================================================
+       15. ADD TO CART FEEDBACK
+       -----------------------------------------------------------------
+       The form still posts to Flask exactly as before. We only add a
+       spinner and a toast so the click feels responsive. No cart logic
+       is touched.
+       ================================================================= */
+    document.querySelectorAll(
+        'form[action*="/cart/add"] button[type="submit"], ' +
+        '[data-add-form] button[type="submit"]'
+    ).forEach(function (button) {
+        button.addEventListener('click', function () {
+            const form = button.closest('form');
+            if (!form) { return; }
+
+            const card = button.closest('.product-card, .offer-card');
+            const nameEl = card
+                ? card.querySelector('.product-title a, .offer-body h3 a')
+                : null;
+            const name = nameEl ? nameEl.textContent.trim() : '';
+
+            button.classList.add('is-loading');
+
+            // Fires just before the page navigates away. A nicety, not
+            // the source of truth - the Flask flash message is.
+            window.setTimeout(function () {
+                window.showToast(
+                    name ? name + ' added to cart!' : 'Product added to cart!',
+                    'success', 2400
+                );
+            }, 260);
+        });
+    });
+
+
+    /* =================================================================
+       16. LOADING SPINNER ON FORM SUBMIT
+       ----------------------------------------------------------------- */
+    document.querySelectorAll('form').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            const button = form.querySelector('button[type="submit"]');
+            if (!button) { return; }
+
+            // Wait briefly so any inline onsubmit handler runs first.
+            window.setTimeout(function () {
+                button.classList.add('is-loading');
+            }, 60);
+        });
+    });
+
+
+    /* =================================================================
+       17. IMAGE FALLBACK
+       -----------------------------------------------------------------
+       Templates also carry an onerror attribute; this catches anything
+       those missed so a dead URL never leaves a broken-image icon.
+       ================================================================= */
+    const PLACEHOLDER = '/static/images/placeholder.svg';
+
+    document.querySelectorAll('img').forEach(function (img) {
+        img.addEventListener('error', function () {
+            if (img.dataset.fallbackApplied) { return; }
+            img.dataset.fallbackApplied = '1';
+            img.src = PLACEHOLDER;
+        });
+    });
+
+
+    /* =================================================================
+       18. PRODUCT DETAIL QUANTITY STEPPER
+       ================================================================= */
+    document.querySelectorAll('.qty-stepper').forEach(function (stepper) {
+        const input = stepper.querySelector('input[name="quantity"]');
+        if (!input) { return; }
+
+        const min = parseInt(input.getAttribute('min'), 10) || 1;
+        const maxAttr = input.getAttribute('max');
+        const max = maxAttr ? parseInt(maxAttr, 10) : null;
+
+        stepper.querySelectorAll('.qty-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const step = parseInt(button.dataset.step, 10) || 0;
+                let value = (parseInt(input.value, 10) || min) + step;
+
+                if (value < min) { value = min; }
+                if (max && value > max) {
+                    value = max;
+                    window.showToast('Only ' + max + ' available in stock.', 'warning');
+                }
+                input.value = value;
+            });
+        });
+    });
+
+
+    /* =================================================================
+       19. INSTANT CLIENT-SIDE FILTER  (products page)
+       -----------------------------------------------------------------
+       PURELY a convenience layer. The page already filters on the
+       server through ?q= and ?category=, which still works with
+       JavaScript off, and the real filter form below is untouched.
+
+       What this adds: as you type, the cards already on the page hide
+       or show instantly instead of waiting for a page reload.
+       ================================================================= */
+    const quickGrid = document.getElementById('quickFilter');
+    const quickSearch = document.getElementById('quickSearch');
+    const quickCategory = document.getElementById('quickCategory');
+    const quickSort = document.getElementById('quickSort');
+    const quickCount = document.getElementById('quickCount');
+    const quickEmpty = document.getElementById('quickEmpty');
+    const quickSearchAll = document.getElementById('quickSearchAll');
+
+    if (quickGrid) {
+        const cards = Array.from(quickGrid.querySelectorAll('.product-card'));
+
+        // Read the data-* attributes once; never scrape visible text.
+        cards.forEach(function (card, index) {
+            card.dataset.search = (card.dataset.name || '').toLowerCase();
+            card.dataset.idx = String(index);
+        });
+
+        const applyFilter = function () {
+            const term = (quickSearch.value || '').trim().toLowerCase();
+            const category = quickCategory ? quickCategory.value : '';
+            let shown = 0;
+
+            cards.forEach(function (card) {
+                const matchesTerm =
+                    !term || card.dataset.search.indexOf(term) !== -1;
+                const matchesCat =
+                    !category || card.dataset.category === category;
+                const visible = matchesTerm && matchesCat;
+
+                card.style.display = visible ? '' : 'none';
+                if (visible) { shown++; }
+            });
+
+            if (quickCount) {
+                quickCount.textContent = shown === cards.length
+                    ? cards.length + ' products on this page'
+                    : shown + ' of ' + cards.length + ' on this page';
+            }
+            if (quickEmpty) { quickEmpty.classList.toggle('show', shown === 0); }
+            quickGrid.style.display = shown === 0 ? 'none' : '';
+
+            // Point the "search everything" link at whatever was typed,
+            // so one click runs a real full-catalogue search on the server.
+            if (quickSearchAll) {
+                quickSearchAll.href = term
+                    ? '/products?q=' + encodeURIComponent(term)
+                    : '/products';
+            }
+        };
+
+        // Client-side re-sort. Reordering the DOM needs no server call.
+        if (quickSort) {
+            quickSort.addEventListener('change', function () {
+                const mode = quickSort.value;
+                const sorted = cards.slice().sort(function (a, b) {
+                    const pa = parseFloat(a.dataset.price) || 0;
+                    const pb = parseFloat(b.dataset.price) || 0;
+                    const na = a.dataset.name || '';
+                    const nb = b.dataset.name || '';
+
+                    if (mode === 'price_low')  { return pa - pb; }
+                    if (mode === 'price_high') { return pb - pa; }
+                    if (mode === 'name')       { return na.localeCompare(nb); }
+                    return parseInt(a.dataset.idx, 10) - parseInt(b.dataset.idx, 10);
+                });
+                sorted.forEach(function (card) { quickGrid.appendChild(card); });
+            });
+        }
+
+        if (quickSearch)  { quickSearch.addEventListener('input', applyFilter); }
+        if (quickCategory){ quickCategory.addEventListener('change', applyFilter); }
+
+        const quickClear = document.getElementById('quickClear');
+        if (quickClear) {
+            quickClear.addEventListener('click', function () {
+                if (quickSearch)   { quickSearch.value = ''; }
+                if (quickCategory) { quickCategory.value = ''; }
+                applyFilter();
+            });
+        }
+
+        // The "no matches" panel has its own reset button.
+        const quickClearEmpty = document.getElementById('quickClearEmpty');
+        if (quickClearEmpty && quickClear) {
+            quickClearEmpty.addEventListener('click', function () {
+                quickClear.click();
+            });
+        }
+
+        applyFilter();
     }
 
 });

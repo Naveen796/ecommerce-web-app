@@ -65,6 +65,19 @@ class Config:
     MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MB maximum file size
     ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
+    # ---------------------------------------------------------------
+    # Demo content for the "Limited Time Offers" strip on the home
+    # page. This is deliberately NOT stored in the database, so you can
+    # change the offers without touching any table.
+    # Key = product slug, value = percentage off.
+    # ---------------------------------------------------------------
+    OFFER_SLUGS = ["aero-running-shoes", "pulse-wireless-earbuds", "vertex-14-laptop"]
+    OFFER_DISCOUNTS = {
+        "aero-running-shoes": 30,
+        "pulse-wireless-earbuds": 25,
+        "vertex-14-laptop": 15,
+    }
+
     # Create the uploads folder automatically so the app never crashes.
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 

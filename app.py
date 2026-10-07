@@ -379,7 +379,7 @@ def save_product_image(file_storage):
 
 @app.template_filter("money")
 def money_filter(value):
-    """Format a number as money, e.g. 18999.0 -> ₹18,999.00"""
+    """Format a number as money, e.g. 18999.0 -> â‚¹18,999.00"""
     try:
         amount = float(value)
     except (TypeError, ValueError):
@@ -408,6 +408,34 @@ def order_status_colour(status):
     }.get(status, "badge-pending")
 
 
+def demo_rating(product):
+    """
+    Return a stable demo star rating (4.0 - 4.9) plus a review count.
+
+    PLEASE READ THIS BEFORE THE INTERVIEW
+    --------------------------------------
+    There is no reviews table in this project, so this is PLACEHOLDER
+    DATA - not real customer scores. It is derived from the product id,
+    so a product always shows the same stars and nothing flickers when
+    you refresh.
+
+    If you ever add real reviews, replace this one function with a
+    query and a real AVG(rating). Nothing else needs to change.
+    """
+    seed = int(product.get("id") or 0)
+    stars = round(4.0 + ((seed * 7) % 10) / 10.0, 1)
+    reviews = 12 + (seed * 13) % 240
+    return stars, reviews
+
+
+def short_description(text, length=88):
+    """Trim a description down so it fits neatly on a product card."""
+    text = " ".join((text or "").split())
+    if len(text) <= length:
+        return text
+    return text[:length].rsplit(" ", 1)[0] + "..."
+
+
 def get_cart_count():
     """Total number of items in the logged in user's cart (for the badge)."""
     user = get_current_user()
@@ -420,18 +448,41 @@ def get_cart_count():
     return int(row["total"]) if row else 0
 
 
+def get_nav_categories():
+    """
+    The category list shown in the navbar and the footer.
+
+    It runs on every page, so a database problem must never take the
+    whole site down - on failure we just return an empty list.
+    """
+    try:
+        return query_all(
+            """SELECT c.id, c.name, c.slug, COUNT(p.id) AS product_count
+               FROM categories c
+               LEFT JOIN products p ON p.category_id = c.id AND p.is_active = 1
+               GROUP BY c.id
+               ORDER BY c.name"""
+        )
+    except MySQLError as error:
+        logger.error("Could not load nav categories: %s", error)
+        return []
+
+
 @app.context_processor
 def inject_globals():
     """Make these variables available inside every template."""
     return {
         "current_user": get_current_user(),
         "cart_count": get_cart_count(),
+        "nav_categories": get_nav_categories(),
         "site_name": app.config["SITE_NAME"],
         "site_tagline": app.config["SITE_TAGLINE"],
         "csrf_token": generate_csrf_token,
         "money": money_filter,
         "product_image_url": product_image_url,
         "order_status_colour": order_status_colour,
+        "demo_rating": demo_rating,
+        "short_description": short_description,
         "current_year": datetime.now().year,
     }
 
@@ -454,7 +505,7 @@ def index():
     )
 
     featured = query_all(
-        """SELECT p.*, c.name AS category_name
+        """SELECT p.*, c.name AS category_name, c.slug AS category_slug
            FROM products p
            LEFT JOIN categories c ON c.id = p.category_id
            WHERE p.is_active = 1 AND p.is_featured = 1
@@ -463,7 +514,7 @@ def index():
     )
 
     newest = query_all(
-        """SELECT p.*, c.name AS category_name
+        """SELECT p.*, c.name AS category_name, c.slug AS category_slug
            FROM products p
            LEFT JOIN categories c ON c.id = p.category_id
            WHERE p.is_active = 1
@@ -471,13 +522,56 @@ def index():
            LIMIT 4"""
     )
 
+    # ---- "Limited Time Offers" strip -----------------------------
+    # The slugs and the discounts live in config.py, so you can change
+    # the offers without touching any database table.
+    offers = []
+    for slug in app.config["OFFER_SLUGS"]:
+        row = query_one(
+            """SELECT p.*, c.name AS category_name, c.slug AS category_slug
+               FROM products p
+               LEFT JOIN categories c ON c.id = p.category_id
+               WHERE p.slug = %s AND p.is_active = 1""",
+            (slug,),
+        )
+        if row is None:
+            continue
+        percent = app.config["OFFER_DISCOUNTS"].get(slug, 20)
+        current = Decimal(str(row["price"]))
+        # Work backwards to show a believable "was" price.
+        row["discount_percent"] = percent
+        row["was_price"] = (
+            current / (Decimal("1") - Decimal(percent) / 100)
+        ).quantize(Decimal("0.01"))
+        offers.append(row)
+
     return render_template(
         "index.html",
         page_title="Home",
         categories=categories,
         featured=featured,
         newest=newest,
+        offers=offers,
     )
+
+
+@app.route("/about")
+def about():
+    """A simple static 'About us' page."""
+    stats = query_one(
+        """SELECT
+             (SELECT COUNT(*) FROM products WHERE is_active = 1)  AS products,
+             (SELECT COUNT(*) FROM categories)                   AS categories,
+             (SELECT COUNT(*) FROM users    WHERE is_admin = 0) AS customers,
+             (SELECT COUNT(*) FROM orders)                       AS orders"""
+    )
+    return render_template("about.html", page_title="About Us", stats=stats)
+
+
+@app.route("/contact")
+def contact():
+    """A simple static 'Contact us' page. The form is a demo only."""
+    return render_template("contact.html", page_title="Contact Us")
 
 
 @app.route("/products")
@@ -593,7 +687,7 @@ def product_details(slug):
         abort(404, description="That product does not exist or is no longer available.")
 
     related = query_all(
-        """SELECT p.*, c.name AS category_name
+        """SELECT p.*, c.name AS category_name, c.slug AS category_slug
            FROM products p
            LEFT JOIN categories c ON c.id = p.category_id
            WHERE p.category_id = %s AND p.id <> %s AND p.is_active = 1
@@ -1300,7 +1394,7 @@ def admin_dashboard():
     )
 
     low_stock = query_all(
-        """SELECT p.*, c.name AS category_name
+        """SELECT p.*, c.name AS category_name, c.slug AS category_slug
            FROM products p
            LEFT JOIN categories c ON c.id = p.category_id
            WHERE p.is_active = 1 AND p.stock <= %s
@@ -1337,7 +1431,7 @@ def admin_products():
     if search_text:
         keyword = f"%{search_text}%"
         rows = query_all(
-            """SELECT p.*, c.name AS category_name
+            """SELECT p.*, c.name AS category_name, c.slug AS category_slug
                FROM products p
                LEFT JOIN categories c ON c.id = p.category_id
                WHERE p.name LIKE %s OR p.slug LIKE %s
@@ -1346,7 +1440,7 @@ def admin_products():
         )
     else:
         rows = query_all(
-            """SELECT p.*, c.name AS category_name
+            """SELECT p.*, c.name AS category_name, c.slug AS category_slug
                FROM products p
                LEFT JOIN categories c ON c.id = p.category_id
                ORDER BY p.id DESC"""
