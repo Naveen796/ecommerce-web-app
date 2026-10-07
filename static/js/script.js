@@ -316,28 +316,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* =================================================================
        12. FADE IN PRODUCT CARDS AS THEY SCROLL INTO VIEW
+       -----------------------------------------------------------------
        A tiny IntersectionObserver, purely for looks.
+
+       WHY THE "js-anim" CLASS MATTERS
+       The CSS hides the cards ONLY while html has class "js-anim", and
+       we add that class here - after confirming we can actually reveal
+       them again. So if this file never runs, is blocked, or throws an
+       error, the class is never added and the shop is fully visible.
+       The animation is never allowed to break the page.
        ================================================================= */
     const cards = document.querySelectorAll('.product-card');
+    const supportsObserver = 'IntersectionObserver' in window;
+    const prefersStill = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (cards.length && 'IntersectionObserver' in window) {
-        cards.forEach(function (card) {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(14px)';
-            card.style.transition = 'opacity .4s ease, transform .4s ease';
-        });
+    // Only hide the cards when we are certain we can show them again.
+    if (cards.length && supportsObserver && !prefersStill) {
+        document.documentElement.classList.add('js-anim');
 
         const observer = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
+                    entry.target.classList.add('is-visible');
                     observer.unobserve(entry.target);   // animate only once
                 }
             });
-        }, { threshold: 0.1 });
+        }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
 
         cards.forEach(function (card) { observer.observe(card); });
+
+        // Safety net: after 3 seconds show everything unconditionally.
+        // We also switch the transition OFF first, so the cards appear
+        // instantly even if a transition were somehow stuck mid-flight.
+        window.setTimeout(function () {
+            document.querySelectorAll('.product-card').forEach(function (card) {
+                card.style.transition = 'none';
+                card.classList.add('is-visible');
+            });
+            document.documentElement.classList.remove('js-anim');
+            observer.disconnect();
+        }, 3000);
     }
 
 });
