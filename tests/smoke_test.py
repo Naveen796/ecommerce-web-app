@@ -16,13 +16,9 @@ WHY IT EXISTS
 HOW TO RUN
     python tests/smoke_test.py
 
-    It needs the database to exist and be seeded, plus one admin and
-    one customer account (create them with  python admin_setup.py).
-    Edit the two emails below to match the accounts you created.
-
-    The script cleans up its own test products, so it is safe to run
-    again and again. It does create a customer account with a unique
-    email each run - delete it later if you want to.
+    That is all. The script creates its own throwaway accounts, runs
+    every check, then deletes them again - so it needs nothing from you
+    and leaves your database as it found it.
 ======================================================================
 """
 
@@ -36,14 +32,23 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app  # noqa: E402
+from werkzeug.security import generate_password_hash  # noqa: E402
 
 # -------------------------------------------------------------------------
-# Change these two to the accounts you created with admin_setup.py
+# The accounts this run will create and then delete again.
+# The email addresses are made unique per run, so two runs never collide.
 # -------------------------------------------------------------------------
-ADMIN_EMAIL = "admin@shopsphere.test"
-ADMIN_PASSWORD = "admin123"
-CUSTOMER_EMAIL = "naveen@example.com"
-CUSTOMER_PASSWORD = "user123"
+RUN_ID = str(int(time.time()))[::-1]
+ADMIN_EMAIL = f"smoke-admin-{RUN_ID}@example.test"
+ADMIN_PASSWORD = "SmokeAdmin123"
+CUSTOMER_EMAIL = f"smoke-user-{RUN_ID}@example.test"
+CUSTOMER_PASSWORD = "SmokeUser123"
+OTHER_EMAIL = f"smoke-other-{RUN_ID}@example.test"
+OTHER_PASSWORD = "SmokeOther123"
+
+# The name used for the product the admin tests create, so that cleanup
+# can find and remove exactly that product and nothing else.
+TEST_PRODUCT = "Smoke Test Widget"
 
 # -------------------------------------------------------------------------
 # Test helpers
@@ -79,7 +84,24 @@ def main():
     with app.app_context():
         from app import execute, query_all
         execute("DELETE FROM cart_items")
-        execute("DELETE FROM products WHERE name LIKE %s", ("Smoke Test Widget%",))
+        execute("DELETE FROM products WHERE name LIKE %s", (f"{TEST_PRODUCT}%",))
+
+        # --- Create the three throwaway accounts this run needs -------
+        # One admin (is_admin = 1) and two customers, so the
+        # "can another customer see my order?" check has something to
+        # compare against.
+        accounts = [
+            ("Smoke Admin", ADMIN_EMAIL, ADMIN_PASSWORD, 1),
+            ("Smoke Buyer", CUSTOMER_EMAIL, CUSTOMER_PASSWORD, 0),
+            ("Smoke Other", OTHER_EMAIL, OTHER_PASSWORD, 0),
+        ]
+        for name, email, password, is_admin in accounts:
+            execute(
+                """INSERT INTO users (name, email, password, phone, is_admin)
+                   VALUES (%s, %s, %s, '9000000000', %s)""",
+                (name, email, generate_password_hash(password), is_admin),
+            )
+
         print(f"\nDatabase ready. Products: "
               f"{query_all('SELECT COUNT(*) c FROM products')[0]['c']}")
         print("-" * 62)
@@ -166,8 +188,8 @@ def main():
         "csrf_token": token_of(page), "email": CUSTOMER_EMAIL,
         "password": CUSTOMER_PASSWORD, "next": ""})
     check("login redirects", response.status_code == 302)
-    check("navbar shows the user", CUSTOMER_EMAIL.split("@")[0] in
-          "Naveen" or "Naveen Kumar" in client.get("/").get_data(as_text=True))
+    check("navbar shows the user's name",
+          "Smoke Buyer" in client.get("/").get_data(as_text=True))
 
     response = client.post("/cart/add", data={
         "csrf_token": "not-the-right-token", "product_id": 1, "quantity": 1})
@@ -269,8 +291,8 @@ def main():
     other = app.test_client()
     page = other.get("/login")
     other.post("/login", data={
-        "csrf_token": token_of(page), "email": "priya@example.com",
-        "password": "user123", "next": ""})
+        "csrf_token": token_of(page), "email": OTHER_EMAIL,
+        "password": OTHER_PASSWORD, "next": ""})
     check("another customer cannot open this order (404)",
           other.get(confirmation_url).status_code == 404)
     check("a customer cannot open the admin panel (403)",
@@ -405,6 +427,30 @@ def main():
     check("all 6 tables still exist", len(tables) == 6, str(tables))
 
     check("unknown URL gives 404", client.get("/no-such-page").status_code == 404)
+
+    # =================================================================
+    print("\n[8] Cleaning up")
+    # =================================================================
+    with app.app_context():
+        from app import execute, query_all
+        # The orders reference these users, so remove those first.
+        execute("DELETE FROM order_items WHERE order_id IN "
+                "(SELECT id FROM orders WHERE user_id IN "
+                " (SELECT id FROM users WHERE email IN (%s, %s, %s)))",
+                (ADMIN_EMAIL, CUSTOMER_EMAIL, OTHER_EMAIL))
+        execute("DELETE FROM orders WHERE user_id IN "
+                "(SELECT id FROM users WHERE email IN (%s, %s, %s))",
+                (ADMIN_EMAIL, CUSTOMER_EMAIL, OTHER_EMAIL))
+        execute("DELETE FROM cart_items WHERE user_id IN "
+                "(SELECT id FROM users WHERE email IN (%s, %s, %s))",
+                (ADMIN_EMAIL, CUSTOMER_EMAIL, OTHER_EMAIL))
+        execute("DELETE FROM users WHERE email IN (%s, %s, %s)",
+                (ADMIN_EMAIL, CUSTOMER_EMAIL, OTHER_EMAIL))
+        execute("DELETE FROM products WHERE name LIKE %s", (f"{TEST_PRODUCT}%",))
+
+        left = query_all("SELECT COUNT(*) c FROM users WHERE email LIKE %s",
+                         ("smoke-%",))
+    check("throwaway accounts removed", left[0]["c"] == 0, str(left[0]["c"]))
 
     # =================================================================
     print("\n" + "=" * 62)
