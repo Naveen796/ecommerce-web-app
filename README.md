@@ -53,19 +53,19 @@ More: [About](docs/screenshots/04-about.png) ·
 ## Demo accounts
 
 This is a **demo store**. No payment is processed and no order is ever
-shipped. The accounts below are local-only test accounts — the database is
-never uploaded, so nobody else can log in with them.
+shipped.
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | `naveennv796@gmail.com` | `Naveen@2026` |
-| Customer | `naveen.customer@gmail.com` | `Customer@2026` |
+The database is **never uploaded to GitHub** (it is a local MySQL server),
+so nobody else can log in. If you deploy this to a public host, use your own
+accounts and change the passwords first — never publish real credentials.
 
-Create your own instead at any time:
+Create your own accounts at any time:
 
 ```bash
 python admin_setup.py
 ```
+
+Then log in at `/login`. Admins are sent straight to `/admin`.
 
 ---
 
@@ -377,12 +377,9 @@ Find your IPv4 address (e.g. `192.168.1.5`) and open
 
 ### Common way to log in
 
-| Role | Email | Password |
-|---|---|---|
-| Shopper | `naveen.customer@gmail.com` | `Customer@2026` |
-| Admin | `naveennv796@gmail.com` | `Naveen@2026` |
-
-Admins are redirected to `/admin` automatically.
+Admins are redirected to `/admin` automatically. Use the accounts you created
+with `python admin_setup.py` — no default credentials are shipped with this
+project.
 
 ---
 
