@@ -29,6 +29,46 @@ beyond Flask, no JavaScript build tools, and clear comments everywhere.
 
 ---
 
+## Screenshots
+
+| Home | Products |
+|---|---|
+| ![Home](docs/screenshots/01-home.png) | ![Products](docs/screenshots/02-products.png) |
+
+| Product details | Cart |
+|---|---|
+| ![Product details](docs/screenshots/03-product.png) | ![Cart](docs/screenshots/08-cart.png) |
+
+| Checkout | Admin dashboard |
+|---|---|
+| ![Checkout](docs/screenshots/09-checkout.png) | ![Admin dashboard](docs/screenshots/10-admin-dashboard.png) |
+
+More: [About](docs/screenshots/04-about.png) ·
+[Contact](docs/screenshots/05-contact.png) ·
+[Admin products](docs/screenshots/11-admin-products.png) ·
+[404 page](docs/screenshots/07-404.png)
+
+---
+
+## Demo accounts
+
+This is a **demo store**. No payment is processed and no order is ever
+shipped. The accounts below are local-only test accounts — the database is
+never uploaded, so nobody else can log in with them.
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `naveennv796@gmail.com` | `Naveen@2026` |
+| Customer | `naveen.customer@gmail.com` | `Customer@2026` |
+
+Create your own instead at any time:
+
+```bash
+python admin_setup.py
+```
+
+---
+
 ## 1. What this project does
 
 ShopSphere is a full shopping website. A visitor can browse products, search,
@@ -337,10 +377,12 @@ Find your IPv4 address (e.g. `192.168.1.5`) and open
 
 ### Common way to log in
 
-| Role | URL | Notes |
+| Role | Email | Password |
 |---|---|---|
-| Shopper | `/login` → `/` | |
-| Admin | `/login` → `/admin` | Redirected automatically |
+| Shopper | `naveen.customer@gmail.com` | `Customer@2026` |
+| Admin | `naveennv796@gmail.com` | `Naveen@2026` |
+
+Admins are redirected to `/admin` automatically.
 
 ---
 
@@ -453,8 +495,10 @@ Go through this before you call the project done.
 | Open redirect | `next` must start with `/` and not `//` | `safe_next_url()` |
 | Account enumeration | Same message for bad email and bad password | `login()` |
 | Overselling | Stock re-checked inside a transaction with `FOR UPDATE` | `place_order()` |
+| Product images | Real photos via `images.unsplash.com` direct URLs, plus an `onerror` fallback to `placeholder.svg` | `macros.html` |
 | Insecure file upload | Extension whitelist + random filename + 2 MB limit | `save_product_image()` |
 | Crashes | try/except + friendly 500 page + `logs/error.log` | `app.py` |
+| Blank page if JS fails | Content visible by default; JS only *adds* polish | `script.js` |
 
 ---
 

@@ -46,6 +46,7 @@ from flask import (
     url_for,
 )
 from mysql.connector import Error as MySQLError, connect
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import config
@@ -61,6 +62,19 @@ app = Flask(__name__)
 # from_mapping() is the right method for a dictionary.
 # (from_object() only works with a class/import path, not a dict.)
 app.config.from_mapping(config)
+
+# ---------------------------------------------------------------------
+#  BEHIND A REVERSE PROXY (Render, Railway, Nginx, Heroku)
+# ---------------------------------------------------------------------
+# On a real host the browser talks HTTPS to the proxy, and the proxy
+# talks plain HTTP to this app. Without ProxyFix Flask would believe it
+# is on http://, build wrong URLs and refuse to set a secure cookie -
+# so logins would silently break in production.
+#
+# We only switch it on when debug is OFF, which is exactly when the app
+# is running somewhere else. Local development is untouched.
+if not app.config["DEBUG"]:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
 # ======================================================================
